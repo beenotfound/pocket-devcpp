@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="classic">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="随身DevC++">
+<meta name="theme-color" content="#0a246a">
+<title>随身 Dev-C++ · C/C++ 练习</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./css/app.css">
+<script>
+  // 出错时把位置写进标题，方便无头浏览器排查（对用户无感）
+  window.addEventListener('error', function (e) {
+    var f = (e.filename || '').split('/').pop();
+    document.title = 'ERR: ' + e.message + ' @' + f + ':' + e.lineno;
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    document.title = 'REJ: ' + ((e.reason && e.reason.message) || e.reason);
+  });
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- 标题栏（经典 Dev-C++ 的蓝色标题条） -->
+  <header class="titlebar">
+    <span class="tb-logo">C++</span>
+    <span class="tb-name" id="fileName">main.cpp</span>
+    <button class="tb-btn" id="menuBtn" aria-label="菜单">☰</button>
+  </header>
+
+  <!-- 工具栏 -->
+  <div class="toolbar" id="toolbar">
+    <button class="tbtn" data-act="new" title="新建文件">新建</button>
+    <button class="tbtn" data-act="open" title="导入本机文件">打开</button>
+    <button class="tbtn" data-act="save" title="下载到“文件”App">保存</button>
+    <span class="tsep"></span>
+    <button class="tbtn" data-act="check" title="只检查语法结构">检查</button>
+    <button class="tbtn primary" data-act="run" title="运行 (Ctrl+Enter)">▶ 运行</button>
+    <span class="tsep"></span>
+    <button class="tbtn" data-act="files" title="文件列表">文件</button>
+    <button class="tbtn" data-act="examples" title="课本例题">例题</button>
+    <span class="tspacer"></span>
+    <button class="tbtn icon" data-act="fontDown" title="字号减小">A−</button>
+    <button class="tbtn icon" data-act="fontUp" title="字号增大">A+</button>
+  </div>
+
+  <!-- 标签页 -->
+  <nav class="tabstrip" id="tabStrip"></nav>
+
+  <!-- 编辑区 -->
+  <main class="editor-pane" id="editorPane">
+    <div class="gutter" id="gutter" aria-hidden="true"></div>
+    <div class="code-wrap">
+      <div class="bands" id="bands" aria-hidden="true"></div>
+      <pre class="highlight" id="highlight" aria-hidden="true"><code></code></pre>
+      <textarea id="code" class="code-input" spellcheck="false" autocapitalize="off"
+                autocomplete="off" autocorrect="off" wrap="off" aria-label="代码编辑区"></textarea>
+    </div>
+  </main>
+
+  <!-- 触屏工具条：iPad 软键盘没有 Tab/花括号，这里补上 -->
+  <div class="kbd-bar" id="kbdBar">
+    <button data-ins="  " title="缩进">⇥</button>
+    <button data-ins="{">&#123;</button>
+    <button data-ins="}">&#125;</button>
+    <button data-ins="(">(</button>
+    <button data-ins=")">)</button>
+    <button data-ins=";">;</button>
+    <button data-ins="&quot;">"</button>
+    <button data-ins="#include &lt;stdio.h&gt;&#10;">stdio</button>
+    <button data-ins="#include &lt;iostream&gt;&#10;using namespace std;&#10;">iostream</button>
+    <button data-act="undo" title="撤销">↶</button>
+    <button data-act="redo" title="重做">↷</button>
+    <button data-act="panel" title="显示/隐藏输出面板">▤</button>
+  </div>
+
+  <!-- 底部面板 -->
+  <section class="panel" id="panel">
+    <div class="panel-tabs">
+      <button class="ptab active" data-tab="msg">编译信息</button>
+      <button class="ptab" data-tab="out">程序输出</button>
+      <button class="ptab" data-tab="in">标准输入</button>
+      <span class="tspacer"></span>
+      <button class="tbtn" data-act="clear" title="清空">清空</button>
+    </div>
+    <div class="panel-body">
+      <div class="pane show" id="paneMsg"></div>
+      <pre class="pane" id="paneOut"></pre>
+      <textarea class="pane" id="paneIn" spellcheck="false" autocapitalize="off"
+                placeholder="在这里预先写好程序要读入的数据，运行时程序会按顺序读取。例如：&#10;1 2"></textarea>
+    </div>
+  </section>
+
+  <!-- 状态栏 -->
+  <footer class="statusbar">
+    <span class="st" id="stPos">行 1, 列 1</span>
+    <span class="st" id="stLang">C++</span>
+    <span class="st" id="stEnc">UTF-8</span>
+    <span class="st" id="stEngine">本地引擎</span>
+    <span class="st grow" id="stTime"></span>
+  </footer>
+</div>
+
+<!-- 侧边文件列表 -->
+<div class="drawer-mask" id="drawerMask" hidden></div>
+<aside class="drawer" id="drawer" hidden>
+  <div class="drawer-head">
+    <strong>文件</strong>
+    <button class="tbtn" data-act="new">＋ 新建</button>
+    <button class="tbtn" id="drawerClose">关闭</button>
+  </div>
+  <div class="drawer-list" id="fileList"></div>
+  <div class="drawer-foot">
+    <button class="tbtn" data-act="import">导入文件</button>
+    <button class="tbtn" data-act="exportZip">导出备份</button>
+    <button class="tbtn" data-act="restore">导入备份</button>
+  </div>
+</aside>
+
+<!-- 菜单 -->
+<div class="menu-mask" id="menuMask" hidden></div>
+<div class="menu" id="menu" hidden>
+  <div class="menu-group">外观</div>
+  <button class="menu-item" data-act="theme">切换主题（经典 / 深色）</button>
+  <button class="menu-item" data-act="fontDown">字号减小</button>
+  <button class="menu-item" data-act="fontUp">字号增大</button>
+  <div class="menu-group">运行</div>
+  <button class="menu-item" data-act="engine">切换引擎（本地 / 联网真实 g++）</button>
+  <button class="menu-item" data-act="examples">课本例题</button>
+  <div class="menu-group">文件</div>
+  <button class="menu-item" data-act="rename">重命名当前文件</button>
+  <button class="menu-item" data-act="exportZip">导出全部备份（.json）</button>
+  <button class="menu-item" data-act="restore">导入备份</button>
+  <div class="menu-group">帮助</div>
+  <button class="menu-item" data-act="help">使用说明 / 支持范围</button>
+  <button class="menu-item" data-act="about">关于（开源声明）</button>
+</div>
+
+<!-- 例题选择 -->
+<div class="menu-mask" id="exMask" hidden></div>
+<div class="sheet" id="examples" hidden>
+  <div class="sheet-head"><strong>课本例题</strong><button class="tbtn" id="exClose">关闭</button></div>
+  <div class="sheet-body" id="exampleList"></div>
+</div>
+
+<!-- 帮助 -->
+<div class="menu-mask" id="helpMask" hidden></div>
+<div class="sheet" id="help" hidden>
+  <div class="sheet-head"><strong>使用说明 / 支持范围</strong><button class="tbtn" id="helpClose">关闭</button></div>
+  <div class="sheet-body help-body">
+    <h3>能做什么</h3>
+    <ul>
+      <li>写 C / C++，<b>语法高亮</b>、行号、自动缩进、括号自动配对</li>
+      <li>点「▶ 运行」直接执行，输出在「程序输出」里</li>
+      <li>要读入数据就先在「标准输入」里写好，再运行</li>
+      <li>报错会显示行号，点一下跳过去</li>
+      <li>代码自动保存在这台 iPad 上，断网也能用</li>
+    </ul>
+    <h3>本地引擎（离线）支持的范围</h3>
+    <p>已支持：基本类型、数组（含二维）、指针、函数与递归、<code>if/for/while/switch</code>、<code>printf</code>/<code>scanf</code>、<code>cin</code>/<code>cout</code>、<code>string.h</code>、<code>math.h</code>、<code>cstdio</code>/<code>cstring</code> 的常用函数、字符串数组。</p>
+    <p><b>本地引擎会自动做两件兼容改写</b>（只影响运行，不改你的源码）：</p>
+    <ul>
+      <li><b>结构体</b>：把 <code>struct Student{...}</code> 展开成一组按字段命名的变量/数组，<code>a[i].score</code> 自动变成 <code>a_score[i]</code>。支持结构体变量、结构体数组、二维结构体数组、<code>char</code> 数组成员。</li>
+      <li><b>scanf 读数组</b>：解释器的 scanf 不能直接写进数组元素，会被改写成安全的读入方式（格式串里带逗号等特殊写法时不做改写）。</li>
+      <li><b>中文提示</b>：字符串里的中文会先转义、运行后自动还原，<code>printf("平均分 = %d", s)</code> 能正常显示。注意 <code>strlen("中文")</code> 这类对中文串求长度的结果不准。</li>
+    </ul>
+    <p><b>仍不支持</b>：结构体指针 <code>-&gt;</code>、结构体当函数参数/返回值、结构体整体赋值、嵌套结构体、<code>enum</code>、<code>class</code>、模板、STL（<code>vector</code>/<code>string</code>/<code>sort</code>）、<code>malloc</code>/<code>free</code>、多文件链接、<code>goto</code>、文件读写、交互式输入。</p>
+    <p><b>这些都能用「联网真实 g++」跑</b>：菜单 →「切换引擎」。在线模式是真正的 GCC 14（和电脑上 Dev-C++ 同一编译器家族），报错也几乎一样。代价是必须联网，代码会发送到 godbolt.org。</p>
+    <p>碰到不支持的写法，可以点「切换引擎」用联网的真实 g++ 跑一次（需要网络，代码会发送到第三方免费服务）。</p>
+    <h3>和 Dev-C++ 的报错差别</h3>
+    <p>Dev-C++ 用真正的 g++：一次能把多处编译错误、链接错误都列出来。本地引擎是解释器：通常只报<b>第一处</b>错误，措辞也不同，但不检查 <code>printf</code> 格式串这类警告；好处是数组越界、除零、用未初始化变量会<b>直接报错并给出行号</b>。</p>
+    <h3>注意</h3>
+    <ul>
+      <li>代码存在浏览器里，<b>重要作业请用「导出备份」</b>存到「文件」App。</li>
+      <li>死循环会在约 2 秒后被强制停止。</li>
+      <li>本工具不是编译器，不能替代电脑上的 Dev-C++ 做大型/多文件工程。</li>
+    </ul>
+    <h3>致谢</h3>
+    <p>离线运行引擎：<a href="https://github.com/felixhao28/JSCPP" target="_blank" rel="noopener">JSCPP</a>（MIT License）。</p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="importFile" accept=".c,.cpp,.h,.hpp,.txt,.json,.cc" multiple hidden>
+<input type="file" id="restoreFile" accept=".json,application/json" hidden>
+
+<script src="./vendor/JSCPP.es5.min.js"></script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

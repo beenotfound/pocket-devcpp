@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>START</title>
+<script type="module">
+// 浏览器里验证：真实页面能否跨域调用 Compiler Explorer（CORS + 结果解析）
+import { runOnline } from '../js/engine-online.js';
+
+const results = [];
+try {
+  const r1 = await runOnline(
+    '#include <iostream>\n#include <string>\nusing namespace std;\nstruct P{string name; int age;};\nint main(){P p; p.name="Tom"; p.age=18; cout<<p.name<<" "<<p.age<<endl; return 0;}',
+    '', { language: 'cpp' }
+  );
+  results.push((r1.ok && r1.out.trim() === 'Tom 18' ? 'PASS' : 'FAIL') + ' browser struct+string :: ' + JSON.stringify(r1.out.trim()));
+
+  const r2 = await runOnline(
+    '#include <stdio.h>\nstruct S{int a;int b;};\nint main(){struct S s;s.a=3;s.b=6;printf("%d",s.a*s.b);return 0;}',
+    '', { language: 'c' }
+  );
+  results.push((r2.ok && r2.out.trim() === '18' ? 'PASS' : 'FAIL') + ' browser C struct :: ' + JSON.stringify(r2.out.trim()));
+} catch (e) {
+  results.push('FAIL browser crash :: ' + e.message);
+}
+document.title = results.some((r) => r.startsWith('FAIL')) ? 'ONLINE FAIL' : 'ONLINE PASS';
+document.body.innerHTML = '<pre>' + results.join('\n') + '</pre>';
+</script>

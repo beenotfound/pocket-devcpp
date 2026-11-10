@@ -1,0 +1,17 @@
+{
+  "name": "随身 Dev-C++ · C/C++ 练习",
+  "short_name": "随身DevC++",
+  "description": "在 iPad 上写 C / C++：语法高亮、一键运行、报错定位，离线可用。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e1e1e",
+  "theme_color": "#0a246a",
+  "icons": [
+    { "src": "./icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
