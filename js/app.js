@@ -11,11 +11,20 @@ import {
 import { runLocal, runOnline } from './runner.js';
 import { precheck, detectUnsupported } from './errors.js';
 import { expandStructs, usesStruct } from './struct-compat.js';
+import { expandEnums } from './enum-compat.js';
 import { rewriteScanf } from './scanf-compat.js';
 import { encodeTextLiterals, decodeText } from './text-compat.js';
 import { EXAMPLES } from './examples.js';
 
 const $ = (id) => document.getElementById(id);
+
+export const APP_VERSION = '1.4.0';
+const CHANGELOG = [
+  ['1.4.0', ['支持 enum（自动展开为整数常量）', '有新版本时顶部会提示刷新', '菜单显示版本号']],
+  ['1.3.0', ['结构体可用（自动展开为字段数组）', 'scanf 读数组不再报 Memory overflow', '中文输出正常显示']],
+  ['1.2.0', ['在线模式改用真实的 GCC 14（Compiler Explorer）']],
+  ['1.0.0', ['第一版：编辑器、运行、报错定位、离线缓存']],
+];
 
 const state = loadState(window.localStorage);
 const ui = {
@@ -317,11 +326,34 @@ async function doRun() {
   let codeToRun = code;
   let compatNote = '';
   let structHandled = false;
+  let enumHandled = false;
   let textMap = null;
 
   if (state.settings.engine === 'local') {
-    if (usesStruct(code)) {
-      const st = expandStructs(code);
+    // 3a) enum → 整数常量（要先做，结构体里可能有 enum 字段）
+    if (/\benum\b/.test(codeToRun)) {
+      const en = expandEnums(codeToRun);
+      if (!en.ok) {
+        msgCard({
+          kind: 'err',
+          head: '这段 enum 超出离线兼容层的能力',
+          hint: (en.reason || '不支持的 enum 写法') + (en.detail ? '：' + en.detail : '') +
+                '。用联网真实 g++ 可以直接跑。',
+          action: { label: '切换并重新运行', run: () => { switchToOnline(true); doRun(); } },
+        });
+        ui.stTime.textContent = '未运行';
+        return;
+      }
+      if (en.count) {
+        codeToRun = en.code;
+        enumHandled = true;
+        compatNote += 'enum 已展开成整数常量；';
+      }
+    }
+
+    // 3b) struct → 按字段命名的变量/数组
+    if (usesStruct(codeToRun)) {
+      const st = expandStructs(codeToRun);
       if (!st.ok) {
         msgCard({
           kind: 'err',
@@ -356,7 +388,7 @@ async function doRun() {
 
   // 3) 还是不支持的东西（class / STL / malloc…）就提示切在线
   const unsupported = detectUnsupported(code).filter(
-    (u) => !(structHandled && u.what.startsWith('结构体'))
+    (u) => !(structHandled && u.what.startsWith('结构体')) && !(enumHandled && u.what.startsWith('枚举'))
   );
   if (unsupported.length && state.settings.engine === 'local') {
     msgCard({
@@ -562,7 +594,22 @@ function handleAction(act) {
     case 'help': closeMenu(); ui.help.hidden = false; ui.helpMask.hidden = false; break;
     case 'about':
       closeMenu();
-      alert('随身 Dev-C++（网页版）\n\n离线运行引擎：JSCPP · MIT License\n网址：https://github.com/felixhao28/JSCPP\n\n这是一个纯前端学习工具，代码只保存在你的设备上。');
+      alert(
+        '随身 Dev-C++（网页版）　v' + APP_VERSION + '\n\n' +
+        '离线运行引擎：JSCPP · MIT License\nhttps://github.com/felixhao28/JSCPP\n' +
+        '在线模式：Compiler Explorer 公开 API（GCC 14）\n\n' +
+        '更新记录：\n' +
+        CHANGELOG.map(([v, items]) => 'v' + v + '\n' + items.map((t) => '  · ' + t).join('\n')).join('\n') +
+        '\n\n代码只保存在这台设备上，重要作业记得导出备份。'
+      );
+      break;
+    case 'checkUpdate':
+      closeMenu();
+      if (!('serviceWorker' in navigator)) { toast('这个浏览器不支持离线更新检查'); break; }
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (!reg) { toast('还没有注册离线缓存，刷新一下页面'); return; }
+        reg.update().then(() => toast('已检查更新')).catch(() => toast('检查更新失败，稍后再试'));
+      });
       break;
     default: break;
   }
@@ -651,13 +698,58 @@ function boot() {
   renderDrawer();
   updateStatus();
 
+  const aboutBtn = $('aboutBtn');
+  if (aboutBtn) aboutBtn.textContent = '关于 / 版本 v' + APP_VERSION;
+
   // 关页/切后台时立即存盘
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persist(); });
   window.addEventListener('pagehide', persist);
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    registerServiceWorker();
   }
+}
+
+/** 注册 SW，并在检测到新版本时显示顶部提示条 */
+function registerServiceWorker() {
+  let reloading = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    const bar = $('updateBar');
+
+    const announce = (worker) => {
+      if (!worker || !bar) return;
+      bar.hidden = false;
+      const btn = bar.querySelector('button');
+      if (btn) {
+        btn.onclick = () => {
+          bar.hidden = true;
+          worker.postMessage({ type: 'SKIP_WAITING' });
+        };
+      }
+    };
+
+    if (reg.waiting && navigator.serviceWorker.controller) announce(reg.waiting);
+
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) announce(nw);
+      });
+    });
+
+    // 回到前台时主动查一次更新
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
 }
 
 boot();
@@ -719,6 +811,14 @@ if (new URLSearchParams(location.search).has('selftest')) {
       ui.paneIn.value = '';
       await doRun();
       push('中文输出还原', ui.paneOut.textContent.includes('平均分'), JSON.stringify(ui.paneOut.textContent.trim()));
+
+      // enum 端到端（离线兼容层）
+      f.content = '#include <stdio.h>\nenum Color { RED, GREEN, BLUE };\nint main(){ enum Color c = GREEN; printf("%d", c); return 0; }';
+      editor.ta.value = f.content;
+      ui.paneIn.value = '';
+      await doRun();
+      push('enum 端到端', ui.paneOut.textContent.trim() === '1', JSON.stringify(ui.paneOut.textContent.trim()));
+      push('版本号存在', APP_VERSION === '1.4.0', APP_VERSION);
     } catch (e) {
       push('selftest crash', false, e.message);
     }

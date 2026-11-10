@@ -79,6 +79,9 @@ iPad 想连电脑预览的话，看窗口里打印的局域网地址（要同一
 - **结构体展开**：`struct Student{ char name[20]; int score; };` + `a[i].score` → 自动展开成 `char a_name[3][20]; int a_score[3];` + `a_score[i]`。支持结构体变量、结构体数组、二维结构体数组、`char` 数组成员、`= {0}` 清零。
 - **scanf 改写**：`scanf("%d", &a[i]);` → `a[i] = __pocket_rd_int();`，这样数组输入不再报 Memory overflow。
 - **中文转义**：字符串里的中文会先换成占位符、运行后自动还原，`printf("平均分 = %d", s)` 正常显示。副作用：`strlen("中文")` 这类求长度的结果不准。
+- **enum 展开**：`enum Color { RED, GREEN = 5, BLUE };` → `#define RED 0 / GREEN 5 / BLUE 6`，`enum Color c;` → `int c;`。只支持整数常量初值（表达式会提示切联网）。
+
+当前版本 **v1.4.0**。有更新时页面顶部会出现提示条，点「立即更新」即可；菜单里也能看到版本号和更新记录。
 
 实测覆盖（`node tests/compat.test.mjs` 9/9、`node tests/struct-compat.test.mjs` 13/13、`node tests/examples.test.mjs` 14/14）：数组循环输入、浮点数组、二维数组输入、字符输入、混合格式、结构体数组录入、结构体排序（连名字一起交换）、全部内置例题、中文输出还原。
 

@@ -26,6 +26,12 @@
 <body>
 <div id="app">
 
+  <!-- 新版本提示条（检测到更新时才显示） -->
+  <div class="update-bar" id="updateBar" hidden>
+    <span>有新版本可用，更新后会自动重新打开</span>
+    <button class="update-btn">立即更新</button>
+  </div>
+
   <!-- 标题栏（经典 Dev-C++ 的蓝色标题条） -->
   <header class="titlebar">
     <span class="tb-logo">C++</span>
@@ -137,8 +143,9 @@
   <button class="menu-item" data-act="exportZip">导出全部备份（.json）</button>
   <button class="menu-item" data-act="restore">导入备份</button>
   <div class="menu-group">帮助</div>
+  <button class="menu-item" data-act="checkUpdate">检查更新</button>
   <button class="menu-item" data-act="help">使用说明 / 支持范围</button>
-  <button class="menu-item" data-act="about">关于（开源声明）</button>
+  <button class="menu-item" data-act="about" id="aboutBtn">关于（开源声明）</button>
 </div>
 
 <!-- 例题选择 -->
@@ -168,8 +175,9 @@
       <li><b>结构体</b>：把 <code>struct Student{...}</code> 展开成一组按字段命名的变量/数组，<code>a[i].score</code> 自动变成 <code>a_score[i]</code>。支持结构体变量、结构体数组、二维结构体数组、<code>char</code> 数组成员。</li>
       <li><b>scanf 读数组</b>：解释器的 scanf 不能直接写进数组元素，会被改写成安全的读入方式（格式串里带逗号等特殊写法时不做改写）。</li>
       <li><b>中文提示</b>：字符串里的中文会先转义、运行后自动还原，<code>printf("平均分 = %d", s)</code> 能正常显示。注意 <code>strlen("中文")</code> 这类对中文串求长度的结果不准。</li>
+      <li><b>enum 枚举</b>：<code>enum Color { RED, GREEN = 5, BLUE };</code> 会自动展开成整数常量（<code>RED=0, GREEN=5, BLUE=6</code>），<code>enum Color c;</code> 变成 <code>int c;</code>。只支持整数常量初值。</li>
     </ul>
-    <p><b>仍不支持</b>：结构体指针 <code>-&gt;</code>、结构体当函数参数/返回值、结构体整体赋值、嵌套结构体、<code>enum</code>、<code>class</code>、模板、STL（<code>vector</code>/<code>string</code>/<code>sort</code>）、<code>malloc</code>/<code>free</code>、多文件链接、<code>goto</code>、文件读写、交互式输入。</p>
+    <p><b>仍不支持</b>：结构体指针 <code>-&gt;</code>、结构体当函数参数/返回值、结构体整体赋值、嵌套结构体、<code>class</code>、模板、STL（<code>vector</code>/<code>string</code>/<code>sort</code>）、<code>malloc</code>/<code>free</code>、多文件链接、<code>goto</code>、文件读写、交互式输入。</p>
     <p><b>这些都能用「联网真实 g++」跑</b>：菜单 →「切换引擎」。在线模式是真正的 GCC 14（和电脑上 Dev-C++ 同一编译器家族），报错也几乎一样。代价是必须联网，代码会发送到 godbolt.org。</p>
     <p>碰到不支持的写法，可以点「切换引擎」用联网的真实 g++ 跑一次（需要网络，代码会发送到第三方免费服务）。</p>
     <h3>和 Dev-C++ 的报错差别</h3>

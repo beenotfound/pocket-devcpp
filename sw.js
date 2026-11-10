@@ -5,7 +5,7 @@
  * 改了文件就把 VERSION 加一，用户下次打开会收到更新提示。
  */
 
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const CACHE = 'pocket-devcpp-' + VERSION;
 
 const ASSETS = [
@@ -22,6 +22,7 @@ const ASSETS = [
   './js/struct-compat.js',
   './js/scanf-compat.js',
   './js/text-compat.js',
+  './js/enum-compat.js',
   './js/errors.js',
   './js/examples.js',
   './vendor/JSCPP.es5.min.js',
@@ -31,9 +32,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+});
+
+// 页面点"立即更新"时，让等待中的新版本立刻接管
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
