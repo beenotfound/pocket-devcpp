@@ -306,8 +306,14 @@ export class CodeEditor {
 
       let handled = false;
       if (e.data && e.data.length === 1) {
-        handled = this._handledPair(after, e.data);
-        if (!handled && e.data === '}') handled = this._autoOutdentBrace();
+        if (e.data === '}') {
+          if (!this._handledPair(after, e.data)) this._typeOverClosingBrace();
+          this._autoOutdentBrace();
+          this._maybeSemicolonAfterBrace();
+          handled = true;
+        } else {
+          handled = this._handledPair(after, e.data);
+        }
       }
       this.prevValue = ta.value;
 
@@ -350,6 +356,46 @@ export class CodeEditor {
     if (nextChar !== '' && !/[\s)\]};,]/.test(nextChar)) return false;
     if (nextChar === closer) return false;
     this.replaceRange(closer, pos, pos, pos, pos);
+    return true;
+  }
+
+  /**
+   * 回车时把自动补的 } 换行后，用户又在缩进位打 }：
+   * 把下面那个自动补的 } 吃掉，只留当前位置这一个，避免出现两个 }
+   */
+  _typeOverClosingBrace() {
+    const value = this.ta.value;
+    const pos = this.ta.selectionStart;
+    const m = value.slice(pos).match(/^[ \t]*\n[ \t]*\}/);
+    if (!m) return false;
+    this.replaceRange('}', pos - 1, pos + m[0].length, pos, pos);
+    return true;
+  }
+
+  /** struct / union / enum 定义的 } 后面自动补分号 */
+  _maybeSemicolonAfterBrace() {
+    const value = this.ta.value;
+    const pos = this.ta.selectionStart;
+    if (value[pos - 1] !== '}') return false;
+    if ((value[pos] || '') === ';') return false;      // 已经有分号
+
+    let depth = 0;
+    let open = -1;
+    for (let i = pos - 2; i >= 0; i--) {
+      if (value[i] === '}') depth++;
+      else if (value[i] === '{') {
+        if (depth === 0) { open = i; break; }
+        depth--;
+      }
+    }
+    if (open < 0) return false;
+
+    const head = value.slice(Math.max(0, open - 160), open).replace(/\s+$/, '');
+    const isAggregate = /(?:\bstruct|\bunion|\benum)\s+[A-Za-z_]\w*$/.test(head)
+      || /(?:\bstruct|\bunion|\benum)\s*$/.test(head);
+    if (!isAggregate) return false;
+
+    this.replaceRange(';', pos, pos, pos + 1, pos + 1);
     return true;
   }
 

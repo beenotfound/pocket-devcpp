@@ -18,8 +18,9 @@ import { EXAMPLES } from './examples.js';
 
 const $ = (id) => document.getElementById(id);
 
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.4.2';
 const CHANGELOG = [
+  ['1.4.2', ['struct / union / enum 定义的 } 后面自动补分号', '回车后自动补的 } 会被"吃掉"，不会出现两个 }']],
   ['1.4.1', ['修复：写到十几行之后，后面的代码"隐身"（高亮层被裁剪）', '修复：} 自动缩进对齐到配对的 {', '修复：在 {} 中间回车会把 } 移到下一行', '新增：#include < 之后自动补 >', '修复：手打右括号时不再出现两个']],
   ['1.4.0', ['支持 enum（自动展开为整数常量）', '有新版本时顶部会提示刷新', '菜单显示版本号']],
   ['1.3.0', ['结构体可用（自动展开为字段数组）', 'scanf 读数组不再报 Memory overflow', '中文输出正常显示']],

@@ -101,6 +101,42 @@ set('int main() {\n    int a;', 'int main() {\n    int a;'.length);
 r = enter();
 eq('普通回车继承缩进', r.value, 'int main() {\n    int a;\n    ');
 
+// 10) struct：{ 回车 } 之后自动补分号（并且不会出现两个 }）
+set('struct Student ', 'struct Student '.length);
+type('{');
+enter();
+r = type('}');
+eq('struct 定义后自动补 ;', r.value, 'struct Student {\n};');
+eq('struct 光标在分号后', String(r.caret), String('struct Student {\n};'.length));
+
+// 11) typedef struct 同样补分号
+set('typedef struct ', 'typedef struct '.length);
+type('{');
+enter();
+r = type('}');
+eq('typedef struct 补 ;', r.value, 'typedef struct {\n};');
+
+// 12) enum 定义补分号
+set('enum Color ', 'enum Color '.length);
+type('{');
+enter();
+r = type('}');
+eq('enum 定义补 ;', r.value, 'enum Color {\n};');
+
+// 13) 普通函数块不补分号
+set('int main() ', 'int main() '.length);
+type('{');
+enter();
+r = type('}');
+eq('函数块不加 ;', r.value, 'int main() {\n}');
+
+// 14) 普通代码块（if）不补分号
+set('if (x) ', 'if (x) '.length);
+type('{');
+enter();
+r = type('}');
+eq('if 块不加 ;', r.value, 'if (x) {\n}');
+
 document.title = results.some((x) => x.startsWith('FAIL')) ? 'EDITOR FAIL' : 'EDITOR PASS';
 document.body.innerHTML = '<pre>' + results.join('\n') + '</pre>';
 </script>
