@@ -1,0 +1,106 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>START</title>
+<link rel="stylesheet" href="../css/app.css">
+<div class="editor-pane" style="height:500px">
+  <div class="gutter" id="gutter"></div>
+  <div class="code-wrap">
+    <div class="bands" id="bands"></div>
+    <pre class="highlight" id="highlight"></pre>
+    <textarea id="code" class="code-input"></textarea>
+  </div>
+</div>
+<script type="module">
+// 编辑器输入行为测试：模拟真实按键（改 value + 派发 input 事件）
+import { CodeEditor } from '../js/editor.js';
+
+const ta = document.getElementById('code');
+const ed = new CodeEditor({
+  textarea: ta,
+  highlightEl: document.getElementById('highlight'),
+  gutterEl: document.getElementById('gutter'),
+  bandsEl: document.getElementById('bands'),
+});
+
+const results = [];
+const eq = (name, actual, expected) => {
+  const ok = actual === expected;
+  results.push((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : ' :: 期望 ' + JSON.stringify(expected) + ' 实际 ' + JSON.stringify(actual)));
+  return ok;
+};
+
+function set(text, caret) {
+  ta.value = text;
+  ta.setSelectionRange(caret, caret);
+  ed.prevValue = text;
+}
+
+/** 模拟敲一个字符 */
+function type(ch) {
+  ta.focus();
+  const pos = ta.selectionStart;
+  ta.value = ta.value.slice(0, pos) + ch + ta.value.slice(pos);
+  ta.setSelectionRange(pos + 1, pos + 1);
+  ta.dispatchEvent(new InputEvent('input', { data: ch, inputType: 'insertText', bubbles: true }));
+  return { value: ta.value, caret: ta.selectionStart };
+}
+
+/** 模拟回车 */
+function enter() {
+  ta.focus();
+  const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  ta.dispatchEvent(ev);
+  return { value: ta.value, caret: ta.selectionStart };
+}
+
+// 1) 输入 ( 自动补 )
+set('', 0);
+let r = type('(');
+eq('自动补 )', r.value, '()');
+eq('光标在其中', String(r.caret), '1');
+
+// 2) 手打 ) 时跳过，不出现两个
+r = type(')');
+eq('手打 ) 不重复', r.value, '()');
+eq('光标越过 )', String(r.caret), '2');
+
+// 3) #include < 自动补 >
+set('#include ', 9);
+r = type('<');
+eq('#include < 补 >', r.value, '#include <>');
+eq('光标在尖括号中间', String(r.caret), '10');
+
+// 4) 手打 > 时跳过
+r = type('>');
+eq('手打 > 不重复', r.value, '#include <>');
+eq('光标越过 >', String(r.caret), '11');
+
+// 5) 普通比较里的 < 不补
+set('if (a ', 6);
+r = type('<');
+eq('比较运算符不补 >', r.value, 'if (a <');
+eq('光标正常', String(r.caret), '7');
+
+// 6) 行首输入 } 自动对齐到 { 所在行的缩进
+set('int main() {\n        ', 'int main() {\n        '.length);
+r = type('}');
+eq('} 自动反缩进', r.value, 'int main() {\n}');
+
+// 7) 嵌套时对齐到内层 {
+set('int main() {\n    if (x) {\n            ', 'int main() {\n    if (x) {\n            '.length);
+r = type('}');
+eq('} 对齐内层 {', r.value, 'int main() {\n    if (x) {\n    }');
+
+// 8) 在 {} 中间回车，} 移到下一行
+set('int main() {}', 12);
+r = enter();
+eq('回车把 } 换行', r.value, 'int main() {\n    \n}');
+
+// 9) 普通回车保持缩进
+set('int main() {\n    int a;', 'int main() {\n    int a;'.length);
+r = enter();
+eq('普通回车继承缩进', r.value, 'int main() {\n    int a;\n    ');
+
+document.title = results.some((x) => x.startsWith('FAIL')) ? 'EDITOR FAIL' : 'EDITOR PASS';
+document.body.innerHTML = '<pre>' + results.join('\n') + '</pre>';
+</script>

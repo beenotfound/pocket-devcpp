@@ -9,7 +9,7 @@
 import { highlight } from './highlight.js';
 
 const PAIRS = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
-const CLOSERS = new Set([')', ']', '}', '"', "'"]);
+const CLOSERS = new Set([')', ']', '}', '"', "'", '>']);
 
 export class CodeEditor {
   constructor({ textarea, highlightEl, gutterEl, bandsEl, onChange, onCursor }) {
@@ -304,11 +304,12 @@ export class CodeEditor {
         this.redoStack.length = 0;
       }
 
-      if (e.data && e.data.length === 1 && !this._handledPair(after, e.data)) {
-        this.prevValue = after;
-      } else {
-        this.prevValue = ta.value;
+      let handled = false;
+      if (e.data && e.data.length === 1) {
+        handled = this._handledPair(after, e.data);
+        if (!handled && e.data === '}') handled = this._autoOutdentBrace();
       }
+      this.prevValue = ta.value;
 
       this._renderNow();
       this.emitCursor();
@@ -325,29 +326,59 @@ export class CodeEditor {
   _handledPair(value, data) {
     const pos = this.ta.selectionStart;
 
-    // 输入左括号/引号：自动补右半边
-    const closer = PAIRS[data];
-    if (closer) {
-      const nextChar = value[pos] || '';
-      if (nextChar === '' || /[\s)\]};,]/.test(nextChar)) {
-        if (nextChar === closer) return false; // 下一个正好是它，直接跳过
-        this.replaceRange(closer, pos, pos, pos, pos);
+    // 1) 光标后面正好是"自动补的收尾符"，用户又手打了一个 → 跳过，不要出现两个
+    if (CLOSERS.has(data) && value[pos - 1] === data && value[pos] === data) {
+      this.replaceRange('', pos - 1, pos, pos, pos);
+      return true;
+    }
+
+    // 2) #include < 后面自动补 >
+    if (data === '<') {
+      const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+      const lineToCaret = value.slice(lineStart, pos);
+      if (/^\s*#\s*include\s*<$/.test(lineToCaret)) {
+        this.replaceRange('>', pos, pos, pos, pos);
         return true;
       }
       return false;
     }
 
-    // 输入右括号：如果下一个字符正好是它，说明是自动补的，跳过而不是重复插入
-    if (CLOSERS.has(data)) {
-      const prevChar = value[pos - 2] || '';
-      const nextChar = value[pos] || '';
-      if (prevChar === data && nextChar === data) {
-        // 用户刚输入的重复字符，删掉新输入并把光标移到后一个括号后面
-        this.replaceRange('', pos - 1, pos, pos - 1, pos - 1);
-        return true;
+    // 3) 普通括号 / 引号
+    const closer = PAIRS[data];
+    if (!closer) return false;
+    const nextChar = value[pos] || '';
+    if (nextChar !== '' && !/[\s)\]};,]/.test(nextChar)) return false;
+    if (nextChar === closer) return false;
+    this.replaceRange(closer, pos, pos, pos, pos);
+    return true;
+  }
+
+  /** 在行首输入 } 时，把它缩进对齐到配对的 { 那一列（Dev-C++ 的手感） */
+  _autoOutdentBrace() {
+    const value = this.ta.value;
+    const pos = this.ta.selectionStart;
+    const lineStart = value.lastIndexOf('\n', pos - 2) + 1;
+    const beforeBrace = value.slice(lineStart, pos - 1);
+    if (!/^[ \t]*$/.test(beforeBrace)) return false;   // 前面还有代码，不动
+
+    let depth = 0;
+    let open = -1;
+    for (let i = pos - 2; i >= 0; i--) {
+      if (value[i] === '}') depth++;
+      else if (value[i] === '{') {
+        if (depth === 0) { open = i; break; }
+        depth--;
       }
     }
-    return false;
+    if (open < 0) return false;
+
+    const openLineStart = value.lastIndexOf('\n', open) + 1;
+    const openIndent = (value.slice(openLineStart, open).match(/^[ \t]*/) || [''])[0];
+    if (openIndent === beforeBrace) return false;
+
+    const caret = lineStart + openIndent.length + 1;
+    this.replaceRange(openIndent, lineStart, lineStart + beforeBrace.length, caret, caret);
+    return true;
   }
 
   _handleEnter() {
@@ -357,12 +388,23 @@ export class CodeEditor {
     const lineStart = before.lastIndexOf('\n') + 1;
     const lineText = before.slice(lineStart);
     const indentMatch = lineText.match(/^[ \t]*/);
-    let indent = indentMatch ? indentMatch[0] : '';
+    const baseIndent = indentMatch ? indentMatch[0] : '';
 
     const trimmed = lineText.trimEnd();
-    const opensBlock = /[{(]$/.test(trimmed) || /:\s*$/.test(trimmed) && /\b(if|for|while|switch|else|default)\b/.test(lineText);
+    const opensBlock = /[{(]$/.test(trimmed) ||
+      (/:\s*$/.test(trimmed) && /\b(if|for|while|switch|else|default)\b/.test(lineText));
 
-    if (opensBlock) indent += '    ';
+    // 光标正好在 {} 中间：把 } 挪到下一行，中间留一个缩进位
+    const charAfter = value.slice(end, end + 1);
+    if (opensBlock && charAfter === '}') {
+      const inner = baseIndent + '    ';
+      const inserted = '\n' + inner + '\n' + baseIndent;
+      const caret = start + 1 + inner.length;
+      this.replaceRange(inserted, start, end, caret, caret);
+      return;
+    }
+
+    const indent = opensBlock ? baseIndent + '    ' : baseIndent;
     this.replaceRange('\n' + indent, start, end);
   }
 }

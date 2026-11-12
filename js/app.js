@@ -18,8 +18,9 @@ import { EXAMPLES } from './examples.js';
 
 const $ = (id) => document.getElementById(id);
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';
 const CHANGELOG = [
+  ['1.4.1', ['修复：写到十几行之后，后面的代码"隐身"（高亮层被裁剪）', '修复：} 自动缩进对齐到配对的 {', '修复：在 {} 中间回车会把 } 移到下一行', '新增：#include < 之后自动补 >', '修复：手打右括号时不再出现两个']],
   ['1.4.0', ['支持 enum（自动展开为整数常量）', '有新版本时顶部会提示刷新', '菜单显示版本号']],
   ['1.3.0', ['结构体可用（自动展开为字段数组）', 'scanf 读数组不再报 Memory overflow', '中文输出正常显示']],
   ['1.2.0', ['在线模式改用真实的 GCC 14（Compiler Explorer）']],
@@ -818,7 +819,19 @@ if (new URLSearchParams(location.search).has('selftest')) {
       ui.paneIn.value = '';
       await doRun();
       push('enum 端到端', ui.paneOut.textContent.trim() === '1', JSON.stringify(ui.paneOut.textContent.trim()));
-      push('版本号存在', APP_VERSION === '1.4.0', APP_VERSION);
+      push('版本号存在', APP_VERSION.startsWith('1.4.'), APP_VERSION);
+
+      // 渲染层：长文件不能被裁剪（曾经的"代码隐身"bug）
+      f.content = Array.from({ length: 40 }, (_, i) => 'int a' + i + ' = ' + i + ';').join('\n');
+      editor.ta.value = f.content;
+      editor._renderNow();
+      const hlH = ui.highlight.scrollHeight;
+      const taH = editor.ta.scrollHeight;
+      push('40 行高亮不被截断', hlH >= taH - 4, 'hl=' + hlH + ' ta=' + taH);
+      push('最后一行已渲染', ui.highlight.innerHTML.includes('a39'), '');
+      // 滚到底，方便截图核对"后面的行是否真的可见"
+      editor.ta.scrollTop = editor.ta.scrollHeight;
+      editor.syncScroll();
     } catch (e) {
       push('selftest crash', false, e.message);
     }

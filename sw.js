@@ -5,7 +5,7 @@
  * 改了文件就把 VERSION 加一，用户下次打开会收到更新提示。
  */
 
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.4.1';
 const CACHE = 'pocket-devcpp-' + VERSION;
 
 const ASSETS = [

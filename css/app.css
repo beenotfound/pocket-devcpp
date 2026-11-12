@@ -237,11 +237,15 @@ html, body {
   overflow-wrap: normal;
 }
 
+/* 高亮层：必须按内容撑高，裁剪交给外层 .code-wrap，
+   否则超过编辑器高度的部分会被自己裁掉（表现为"十几行之后的代码隐身"） */
 .highlight {
-  position: absolute; inset: 0;
+  position: absolute; top: 0; left: 0;
+  width: max-content;
+  min-width: 100%;
   color: var(--fg);
   background: transparent;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   will-change: transform;
 }
@@ -264,7 +268,7 @@ html, body {
 /* 行高亮 / 错误行底纹 */
 .bands {
   position: absolute; inset: 0;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   z-index: 0;
 }
